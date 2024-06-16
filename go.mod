@@ -2,10 +2,10 @@ module github.com/sebarcode/htev
 
 go 1.20
 
-replace git.kanosolution.net/kano/kaos => ../kaos
+//replace git.kanosolution.net/kano/kaos => ../kaos
 
 require (
-	git.kanosolution.net/kano/kaos v0.3.7
+	git.kanosolution.net/kano/kaos v0.3.8
 	github.com/ariefdarmawan/byter v0.0.2
 	github.com/sebarcode/codekit v0.1.6
 	github.com/smartystreets/goconvey v1.7.2
@@ -37,7 +37,7 @@ require (
 	github.com/subosito/gotenv v1.3.0 // indirect
 	golang.org/x/exp v0.0.0-20220303212507-bbda1eaf7a17 // indirect
 	golang.org/x/net v0.0.0-20220520000938-2e3eb7b945c2 // indirect
-	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
+	golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f // indirect
 	golang.org/x/text v0.3.7 // indirect
 	gopkg.in/ini.v1 v1.66.4 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
