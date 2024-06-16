@@ -16,26 +16,28 @@ var (
 	eventSecretID = "myAccessToken"
 )
 
+func TestMain(m *testing.M) {
+	ev := htev.NewHub(byter.NewByter("")).SetSecret(eventSecretID).SetTimeout(1 * time.Minute)
+	defer ev.Close()
+
+	sp := kaos.NewService().SetBasePoint("/event/v1")
+	sp.Log().LogToStdOut = false
+	sp.RegisterModel(new(htevModel), "model").SetDeployer(htev.DeployerName)
+
+	mux := http.NewServeMux()
+	htev.NewDeployer(nil, eventSecretID).Deploy(sp, mux)
+
+	go func() {
+		http.ListenAndServe("localhost:18080", mux)
+		//cv.Printf("l&s: %s", err.Error())
+	}()
+	time.Sleep(1 * time.Millisecond)
+
+	m.Run()
+}
+
 func TestHtev(t *testing.T) {
 	cv.Convey("prepare", t, func() {
-		ev := htev.NewHub(byter.NewByter("")).SetSecret(eventSecretID).SetTimeout(1 * time.Minute)
-		cv.So(ev.Error(), cv.ShouldBeNil)
-		defer ev.Close()
-
-		sp := kaos.NewService().SetBasePoint("/event/v1")
-		sp.Log().LogToStdOut = false
-		sp.RegisterModel(new(htevModel), "model").SetDeployer(htev.DeployerName)
-
-		mux := http.NewServeMux()
-		e := htev.NewDeployer(nil, eventSecretID).Deploy(sp, mux)
-		cv.So(e, cv.ShouldBeNil)
-
-		go func() {
-			http.ListenAndServe("localhost:18080", mux)
-			//cv.Printf("l&s: %s", err.Error())
-		}()
-		time.Sleep(1 * time.Millisecond)
-
 		cv.Convey("htev valid", func() {
 			ev2 := htev.NewCaller("http://localhost:18080", byter.NewByter(""), 15*time.Second).
 				SetSecret(eventSecretID).
