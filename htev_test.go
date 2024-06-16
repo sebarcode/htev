@@ -36,37 +36,37 @@ func TestMain(m *testing.M) {
 	m.Run()
 }
 
-func TestHtev(t *testing.T) {
-	cv.Convey("prepare", t, func() {
-		cv.Convey("htev valid", func() {
-			ev2 := htev.NewCaller("http://localhost:18080", byter.NewByter(""), 15*time.Second).
-				SetSecret(eventSecretID).
-				SetDefaultOpts(&kaos.PublishOpts{
-					Config: codekit.M{
-						"Prefix": "/event/v1",
-					},
-				})
-			resp := ""
-			data := codekit.M{}.Set("ID", "User01")
-			err := ev2.Publish("/model/Register", data, &resp, &kaos.PublishOpts{})
-
-			cv.So(err, cv.ShouldBeNil)
-			cv.So(resp, cv.ShouldEqual, data.GetString("ID"))
-
-			cv.Convey("htev invalid", func() {
-				ev2 := htev.NewCaller("http://localhost:18080", byter.NewByter(""), 15*time.Second).
-					SetDefaultOpts(&kaos.PublishOpts{
-						Config: codekit.M{
-							"Prefix": "/event/v1",
-						},
-					})
-				resp := ""
-				data := codekit.M{}.Set("ID", "User01")
-				err := ev2.Publish("/model/Register", data, &resp, &kaos.PublishOpts{})
-
-				cv.So(err, cv.ShouldNotBeNil)
+func TestHtevValid(t *testing.T) {
+	cv.Convey("htev valid", t, func() {
+		ev2 := htev.NewCaller("http://localhost:18080", byter.NewByter(""), 15*time.Second).
+			SetSecret(eventSecretID).
+			SetDefaultOpts(&kaos.PublishOpts{
+				Config: codekit.M{
+					"Prefix": "/event/v1",
+				},
 			})
-		})
+		resp := ""
+		data := codekit.M{}.Set("ID", "User01")
+		err := ev2.Publish("/model/Register", data, &resp, &kaos.PublishOpts{})
+
+		cv.So(err, cv.ShouldBeNil)
+		cv.So(resp, cv.ShouldEqual, data.GetString("ID"))
+	})
+}
+
+func TestHtevInvalid(t *testing.T) {
+	cv.Convey("htev invalid", t, func() {
+		ev2 := htev.NewCaller("http://localhost:18080", byter.NewByter(""), 15*time.Second).
+			SetDefaultOpts(&kaos.PublishOpts{
+				Config: codekit.M{
+					"Prefix": "/event/v1",
+				},
+			})
+		resp := ""
+		data := codekit.M{}.Set("ID", "User01")
+		err := ev2.Publish("/model/Register", data, &resp, &kaos.PublishOpts{})
+
+		cv.So(err, cv.ShouldNotBeNil)
 	})
 }
 
