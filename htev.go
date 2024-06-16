@@ -1,7 +1,13 @@
 package htev
 
 import (
+	"bytes"
+	"fmt"
+	"io"
+	"net/http"
+	"path"
 	"reflect"
+	"strings"
 	"time"
 
 	"git.kanosolution.net/kano/kaos"
@@ -28,8 +34,25 @@ type Hub struct {
 	signature string
 	btr       byter.Byter
 	timeout   time.Duration
+	opts      *kaos.PublishOpts
 
-	err error
+	addr string
+	err  error
+}
+
+func NewHub(btr byter.Byter) kaos.EventHub {
+	h := new(Hub)
+	h.btr = btr
+	h.timeout = 5 * time.Second
+	return h
+}
+
+func NewCaller(addr string, btr byter.Byter, to time.Duration) kaos.EventHub {
+	h := new(Hub)
+	h.btr = btr
+	h.timeout = to
+	h.addr = addr
+	return h
 }
 
 func (obj *Hub) SetPrefix(p string) kaos.EventHub {
@@ -39,6 +62,14 @@ func (obj *Hub) SetPrefix(p string) kaos.EventHub {
 
 func (obj *Hub) Prefix() string {
 	return obj.prefix
+}
+
+func (obj *Hub) SetDefaultOpts(opts *kaos.PublishOpts) kaos.EventHub {
+	if opts == nil {
+		opts = new(kaos.PublishOpts)
+	}
+	obj.opts = opts
+	return obj
 }
 
 func (obj *Hub) SetSecret(secret string) kaos.EventHub {
@@ -68,9 +99,6 @@ func (obj *Hub) Signature() string {
 }
 
 func (o *Hub) Timeout() time.Duration {
-	if int(o.timeout) == 0 {
-		o.timeout = 5 * time.Second
-	}
 	return o.timeout
 }
 
@@ -88,6 +116,67 @@ func (o *Hub) SetByter(b byter.Byter) kaos.EventHub {
 }
 
 func (obj *Hub) Publish(name string, data interface{}, reply interface{}, opts *kaos.PublishOpts) error {
+	var callOpts kaos.PublishOpts
+	if obj.opts != nil {
+		callOpts = *obj.opts
+	}
+	opts = kaos.MergePublishOpts(&callOpts, opts)
+
+	routePath := name
+	if obj.addr != "" {
+		prefix := opts.Config.GetString("Prefix")
+		if !strings.HasPrefix(name, obj.addr) {
+			routePath = path.Join(obj.addr, prefix, name)
+			routePath = strings.ReplaceAll(routePath, "http:/", "http://")
+			routePath = strings.ReplaceAll(routePath, "https:/", "https://")
+		}
+	}
+	if !strings.HasPrefix(routePath, obj.addr) {
+		return fmt.Errorf("invalid end-point: %s", routePath)
+	}
+
+	bs, err := obj.btr.Encode(data)
+	if err != nil {
+		return fmt.Errorf("encode: %s", err.Error())
+	}
+
+	byteReader := bytes.NewReader(bs)
+	req, err := http.NewRequest(http.MethodPost, routePath, byteReader)
+	if err != nil {
+		return fmt.Errorf("prepare request: %s", err.Error())
+	}
+	for k, v := range opts.Headers {
+		str, ok := v.(string)
+		if !ok {
+			continue
+		}
+		req.Header.Set(k, str)
+	}
+	req.Header.Set(fmt.Sprintf("x-%s-secret", DeployerName), obj.Secret())
+
+	cl := new(http.Client)
+	if obj.Timeout() != time.Duration(0) {
+		cl.Timeout = obj.timeout
+	}
+	resp, err := cl.Do(req)
+	if err != nil {
+		return fmt.Errorf("invoke request: %s", err.Error())
+	}
+	bsResp, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("read respond: %s", err.Error())
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 && resp.StatusCode <= 599 {
+		return fmt.Errorf("invalid respond: %d, %s. %s", resp.StatusCode, resp.Status, string(bsResp))
+	}
+
+	err = obj.btr.DecodeTo(bsResp, reply, nil)
+	if err != nil {
+		return fmt.Errorf("respond decode: %s", err.Error())
+	}
+
 	return nil
 }
 
@@ -95,15 +184,15 @@ func (obj *Hub) Unsubscribe(name string, model *kaos.ServiceModel) {
 }
 
 func (obj *Hub) Subscribe(name string, model *kaos.ServiceModel, fn interface{}) error {
-	return nil
+	return fmt.Errorf("this eventhub does not support Subcribe")
 }
 
 func (obj *Hub) SubscribeEx(name string, model *kaos.ServiceModel, fn interface{}) error {
-	return nil
+	return obj.SubscribeExWithType(name, model, fn, nil)
 }
 
 func (obj *Hub) SubscribeExWithType(name string, model *kaos.ServiceModel, fn interface{}, reqType reflect.Type) error {
-	return nil
+	return fmt.Errorf("this eventhub does not support SubcribeEx or SubscribeExWithType")
 }
 
 func (obj *Hub) Close() {
