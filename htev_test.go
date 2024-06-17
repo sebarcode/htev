@@ -17,7 +17,7 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	ev := htev.NewHub(byter.NewByter("")).SetSecret(eventSecretID).SetTimeout(1 * time.Minute)
+	ev := htev.NewHub("", byter.NewByter("")).SetSecret(eventSecretID).SetTimeout(1 * time.Minute)
 	defer ev.Close()
 
 	sp := kaos.NewService().SetBasePoint("/event/v1")
@@ -38,7 +38,8 @@ func TestMain(m *testing.M) {
 
 func TestHtevValid(t *testing.T) {
 	cv.Convey("htev valid", t, func() {
-		ev2 := htev.NewCaller("http://localhost:18080", byter.NewByter(""), 15*time.Second).
+		ev2 := htev.NewHub("http://localhost:18080", byter.NewByter("")).
+			SetTimeout(15 * time.Second).
 			SetSecret(eventSecretID).
 			SetDefaultOpts(&kaos.PublishOpts{
 				Config: codekit.M{
@@ -56,7 +57,8 @@ func TestHtevValid(t *testing.T) {
 
 func TestHtevInvalid(t *testing.T) {
 	cv.Convey("htev invalid", t, func() {
-		ev2 := htev.NewCaller("http://localhost:18080", byter.NewByter(""), 15*time.Second).
+		ev2 := htev.NewHub("http://localhost:18080", byter.NewByter("")).
+			SetTimeout(15 * time.Second).
 			SetDefaultOpts(&kaos.PublishOpts{
 				Config: codekit.M{
 					"Prefix": "/event/v1",
@@ -67,6 +69,7 @@ func TestHtevInvalid(t *testing.T) {
 		err := ev2.Publish("/model/Register", data, &resp, &kaos.PublishOpts{})
 
 		cv.So(err, cv.ShouldNotBeNil)
+		cv.Printf(" %s", err.Error())
 	})
 }
 

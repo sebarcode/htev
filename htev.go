@@ -40,19 +40,16 @@ type Hub struct {
 	err  error
 }
 
-func NewHub(btr byter.Byter) kaos.EventHub {
+func NewHub(addr string, btr byter.Byter) kaos.EventHub {
 	h := new(Hub)
 	h.btr = btr
+	h.addr = addr
 	h.timeout = 5 * time.Second
 	return h
 }
 
-func NewCaller(addr string, btr byter.Byter, to time.Duration) kaos.EventHub {
-	h := new(Hub)
-	h.btr = btr
-	h.timeout = to
-	h.addr = addr
-	return h
+func (obj *Hub) EventType() string {
+	return DeployerName
 }
 
 func (obj *Hub) SetPrefix(p string) kaos.EventHub {
@@ -169,7 +166,7 @@ func (obj *Hub) Publish(name string, data interface{}, reply interface{}, opts *
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 && resp.StatusCode <= 599 {
-		return fmt.Errorf("invalid respond: %d, %s. %s", resp.StatusCode, resp.Status, string(bsResp))
+		return fmt.Errorf("invalid respond: %s, %s", resp.Status, string(bsResp))
 	}
 
 	err = obj.btr.DecodeTo(bsResp, reply, nil)

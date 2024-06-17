@@ -25,7 +25,7 @@ type HtevDeployer struct {
 }
 
 func init() {
-	deployer.RegisterDeployer(DeployerName, func() (deployer.Deployer, error) {
+	deployer.RegisterDeployer(DeployerName, func(ev kaos.EventHub) (deployer.Deployer, error) {
 		return new(HtevDeployer), nil
 	})
 }
@@ -240,7 +240,7 @@ func (h *HtevDeployer) DeployRoute(svc *kaos.Service, sr *kaos.ServiceRoute, obj
 	// path := svc.BasePoint() + sr.Path
 	httpFn := h.Fn(svc, sr)
 	sr.Path = strings.ReplaceAll(sr.Path, "\\", "/")
-	svc.Log().Infof("registering to mux: %s", sr.Path)
+	svc.Log().Infof("registering to mux-htev: %s", sr.Path)
 	h.mx.Handle(sr.Path, http.HandlerFunc(httpFn))
 	return nil
 }

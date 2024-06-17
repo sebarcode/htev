@@ -2,10 +2,8 @@ module github.com/sebarcode/htev
 
 go 1.20
 
-//replace git.kanosolution.net/kano/kaos => ../kaos
-
 require (
-	git.kanosolution.net/kano/kaos v0.3.8
+	git.kanosolution.net/kano/kaos v0.3.9-0.20240617060211-ca4e7d5b21ad
 	github.com/ariefdarmawan/byter v0.0.2
 	github.com/sebarcode/codekit v0.1.6
 	github.com/smartystreets/goconvey v1.7.2
