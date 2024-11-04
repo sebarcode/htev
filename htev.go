@@ -113,6 +113,10 @@ func (o *Hub) SetByter(b byter.Byter) kaos.EventHub {
 }
 
 func (obj *Hub) Publish(name string, data interface{}, reply interface{}, opts *kaos.PublishOpts) error {
+	if opts == nil {
+		opts = &kaos.PublishOpts{Headers: codekit.M{}}
+	}
+
 	var callOpts kaos.PublishOpts
 	if obj.opts != nil {
 		callOpts = *obj.opts
@@ -129,18 +133,18 @@ func (obj *Hub) Publish(name string, data interface{}, reply interface{}, opts *
 		}
 	}
 	if !strings.HasPrefix(routePath, obj.addr) {
-		return fmt.Errorf("invalid end-point: %s", routePath)
+		return fmt.Errorf("htev invalid end-point: %s", routePath)
 	}
 
 	bs, err := obj.btr.Encode(data)
 	if err != nil {
-		return fmt.Errorf("encode: %s", err.Error())
+		return fmt.Errorf("htev encode: %s", err.Error())
 	}
 
 	byteReader := bytes.NewReader(bs)
 	req, err := http.NewRequest(http.MethodPost, routePath, byteReader)
 	if err != nil {
-		return fmt.Errorf("prepare request: %s", err.Error())
+		return fmt.Errorf("htev prepare request: %s", err.Error())
 	}
 	for k, v := range opts.Headers {
 		str, ok := v.(string)
@@ -157,21 +161,21 @@ func (obj *Hub) Publish(name string, data interface{}, reply interface{}, opts *
 	}
 	resp, err := cl.Do(req)
 	if err != nil {
-		return fmt.Errorf("invoke request: %s", err.Error())
+		return fmt.Errorf("htev invoke request: %s", err.Error())
 	}
 	bsResp, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("read respond: %s", err.Error())
+		return fmt.Errorf("htev read respond: %s", err.Error())
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 && resp.StatusCode <= 599 {
-		return fmt.Errorf("invalid respond: %s, %s", resp.Status, string(bsResp))
+		return fmt.Errorf("htev invalid respond: %s: %s", routePath, string(bsResp))
 	}
 
 	err = obj.btr.DecodeTo(bsResp, reply, nil)
 	if err != nil {
-		return fmt.Errorf("respond decode: %s", err.Error())
+		return fmt.Errorf("htev respond decode: %s", err.Error())
 	}
 
 	return nil
