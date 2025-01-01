@@ -24,12 +24,6 @@ type HtevDeployer struct {
 	validateRequest func(obj interface{}) bool
 }
 
-func init() {
-	deployer.RegisterDeployer(DeployerName, func(ev kaos.EventHub) (deployer.Deployer, error) {
-		return new(HtevDeployer), nil
-	})
-}
-
 // NewDeployer initiate deployer to kaos
 func NewDeployer(fn func(*kaos.Context, string), secret string) *HtevDeployer {
 	dep := new(HtevDeployer)
@@ -230,6 +224,12 @@ func (h *HtevDeployer) Fn(svc *kaos.Service, sr *kaos.ServiceRoute) func(w http.
 	}
 }
 
+func (h *HtevDeployer) DefaultDeployerParam() func() interface{} {
+	return func() interface{} {
+		return new(http.ServeMux)
+	}
+}
+
 func (h *HtevDeployer) DeployRoute(svc *kaos.Service, sr *kaos.ServiceRoute, obj interface{}) error {
 	var ok bool
 	h.mx, ok = obj.(*http.ServeMux)
@@ -267,4 +267,17 @@ func IsHttpHandler(ctx *kaos.Context) bool {
 		}
 	}
 	return false
+}
+
+func (h *HtevDeployer) Activate(obj interface{}) error {
+	mux := obj.(*http.ServeMux)
+	if mux == nil {
+		return fmt.Errorf("mux is nil")
+	}
+	host, ok := h.Get("host").(string)
+	if !ok || host == "" {
+		return fmt.Errorf("config \"Host\" is not set")
+	}
+	go http.ListenAndServe(host, mux)
+	return nil
 }

@@ -11,7 +11,9 @@ import (
 	"time"
 
 	"git.kanosolution.net/kano/kaos"
+	"git.kanosolution.net/kano/kaos/deployer"
 	"github.com/ariefdarmawan/byter"
+	"github.com/ariefdarmawan/serde"
 	"github.com/sebarcode/codekit"
 )
 
@@ -20,30 +22,75 @@ type EventRequest struct {
 	Payload []byte
 }
 
-// EventResponse knats will use this for default event response for Kaos,
-// kaos will throw 2 of them,  data and error
 type EventResponse struct {
 	Data  interface{}
 	Error string
 }
 
 type Hub struct {
-	prefix    string
-	secret    string
-	service   *kaos.Service
-	signature string
-	btr       byter.Byter
-	timeout   time.Duration
-	opts      *kaos.PublishOpts
+	prefix             string
+	secret             string
+	service            *kaos.Service
+	signature          string
+	btr                byter.Byter
+	timeout            time.Duration
+	defaultPublishOpts *kaos.PublishOpts
+	setupOpts          *SetupOpts
 
-	addr string
-	err  error
+	err error
 }
 
-func NewHub(addr string, btr byter.Byter) kaos.EventHub {
+type SetupOpts struct {
+	BasePath string `json:"base_path"`
+}
+
+func init() {
+	deployer.RegisterDeployer(DeployerName, func(obj interface{}) (deployer.Deployer, error) {
+		m, ok := obj.(codekit.M)
+		if !ok {
+			m = codekit.M{}
+		}
+		reqValidation := m.GetBool("require_validation")
+		deployerSecret := m.GetString("secret")
+
+		htevDep := new(HtevDeployer)
+		if reqValidation {
+			htevDep.validateRequest = func(validateObj interface{}) bool {
+				secret, ok := validateObj.(string)
+				if !ok {
+					return false
+				}
+				if deployerSecret != "" && secret != deployerSecret {
+					return false
+				}
+				return true
+			}
+		}
+		return htevDep, nil
+	})
+
+	kaos.RegisterEventHubSetup(DeployerName, func(cfg kaos.EventServerConfig) (kaos.EventHub, error) {
+		setupOpts := new(SetupOpts)
+		err := serde.Serde(cfg.Data, setupOpts)
+		if err != nil {
+			return nil, err
+		}
+
+		ev := NewHub(byter.NewByter(cfg.ByterName)).(*Hub)
+		if cfg.Timeout != 0 {
+			ev.SetTimeout(time.Duration(cfg.Timeout) * time.Second)
+		}
+		ev.SetSecret(cfg.Secret)
+
+		ev.setupOpts = setupOpts
+		ev.defaultPublishOpts = &kaos.PublishOpts{Headers: codekit.M{}, Config: codekit.M{}.Set("prefix", setupOpts.BasePath)}
+		return ev, nil
+	})
+}
+
+func NewHub(btr byter.Byter) kaos.EventHub {
 	h := new(Hub)
 	h.btr = btr
-	h.addr = addr
 	h.timeout = 5 * time.Second
 	return h
 }
@@ -61,11 +108,22 @@ func (obj *Hub) Prefix() string {
 	return obj.prefix
 }
 
+// SetDefaultOpts sets the default publishing options for the Hub.
+// If the provided options are nil, it initializes a new PublishOpts instance.
+// It returns the updated EventHub instance.
+//
+// Parameters:
+//
+//	opts - a pointer to kaos.PublishOpts which contains the publishing options.
+//
+// Returns:
+//
+//	kaos.EventHub - the updated EventHub instance with the default options set.
 func (obj *Hub) SetDefaultOpts(opts *kaos.PublishOpts) kaos.EventHub {
 	if opts == nil {
 		opts = new(kaos.PublishOpts)
 	}
-	obj.opts = opts
+	obj.defaultPublishOpts = opts
 	return obj
 }
 
@@ -118,22 +176,17 @@ func (obj *Hub) Publish(name string, data interface{}, reply interface{}, opts *
 	}
 
 	var callOpts kaos.PublishOpts
-	if obj.opts != nil {
-		callOpts = *obj.opts
+	if obj.defaultPublishOpts != nil {
+		callOpts = *obj.defaultPublishOpts
 	}
 	opts = kaos.MergePublishOpts(&callOpts, opts)
 
 	routePath := name
-	if obj.addr != "" {
-		prefix := opts.Config.GetString("Prefix")
-		if !strings.HasPrefix(name, obj.addr) {
-			routePath = path.Join(obj.addr, prefix, name)
-			routePath = strings.ReplaceAll(routePath, "http:/", "http://")
-			routePath = strings.ReplaceAll(routePath, "https:/", "https://")
-		}
-	}
-	if !strings.HasPrefix(routePath, obj.addr) {
-		return fmt.Errorf("htev invalid end-point: %s", routePath)
+	prefix := opts.Config.GetString("prefix")
+	if prefix != "" {
+		routePath = path.Join(prefix, name)
+		routePath = strings.ReplaceAll(routePath, "http:/", "http://")
+		routePath = strings.ReplaceAll(routePath, "https:/", "https://")
 	}
 
 	bs, err := obj.btr.Encode(data)
