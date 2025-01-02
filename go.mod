@@ -3,7 +3,7 @@ module github.com/sebarcode/htev
 go 1.20
 
 require (
-	git.kanosolution.net/kano/kaos v0.3.9-0.20250101103333-1855d1b72abe
+	git.kanosolution.net/kano/kaos v0.3.9-0.20250102023848-4da1e5e043c5
 	github.com/ariefdarmawan/byter v0.0.2
 	github.com/ariefdarmawan/serde v0.1.1
 	github.com/sebarcode/codekit v0.1.6
