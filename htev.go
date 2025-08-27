@@ -223,7 +223,7 @@ func (obj *Hub) Publish(name string, data interface{}, reply interface{}, opts *
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 && resp.StatusCode <= 599 {
-		return fmt.Errorf("htev invalid respond: %s: %s", routePath, string(bsResp))
+		return fmt.Errorf("htev invalid respond: %s", string(bsResp))
 	}
 
 	err = obj.btr.DecodeTo(bsResp, reply, nil)
